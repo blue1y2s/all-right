@@ -105,13 +105,3 @@ export const newPlatform: PlatformAdapter = {
 4. 复制或下载当前平台草稿。
 5. 点击“一键模拟发布”，展示四个平台队列、日志和历史记录。
 6. 切到“扩展架构”，说明新增平台只需要实现 adapter。
-
-## 参考项目取舍
-
-- SYNAPSEAUTOMATION：借鉴任务调度和执行回收思路。
-- Wechatsync：借鉴本地浏览器登录态、草稿优先和平台适配器。
-- turbopush-website：借鉴 Markdown 编辑、多平台模板和产品展示方式。
-- yupi-hot-monitor：借鉴热点输入源。
-- ai-passage-creator：借鉴内容生成链路。
-
-没有复制 GPL 项目代码，首版只保留可演示的产品闭环和可扩展接口。
