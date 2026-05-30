@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #171717;
+  --muted: #66645d;
+  --paper: #f7f3ea;
+  --panel: #fffaf0;
+  --line: #24211a;
+  --accent: #0f7b73;
+  --accent-2: #d85030;
+  --accent-3: #e5b43f;
+  --success: #1d7f4f;
+  --danger: #b43a31;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    linear-gradient(90deg, rgba(23, 23, 23, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(23, 23, 23, 0.04) 1px, transparent 1px),
+    var(--paper);
+  background-size: 28px 28px;
+  color: var(--ink);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family:
+    "Avenir Next", "DIN Alternate", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+textarea {
+  resize: vertical;
+}
+
+::selection {
+  background: #f5d873;
+  color: var(--ink);
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.work-surface {
+  border: 2px solid var(--line);
+  background: rgba(255, 250, 240, 0.94);
+  box-shadow: 10px 10px 0 #171717;
+}
+
+.tool-panel {
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+
+.pressed-shadow {
+  box-shadow: 4px 4px 0 #171717;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.pressed-shadow:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 #171717;
+}
+
+.pressed-shadow:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #171717;
+}
+
+.field {
+  width: 100%;
+  border: 2px solid var(--line);
+  background: #fffdf7;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.field:focus {
+  box-shadow: 0 0 0 3px rgba(15, 123, 115, 0.22);
+}
+
+.preview-copy h1,
+.preview-copy h2,
+.preview-copy h3 {
+  margin: 14px 0 8px;
+  font-weight: 800;
+}
+
+.preview-copy p,
+.preview-copy li {
+  line-height: 1.78;
+}
+
+.preview-copy code {
+  border: 1px solid rgba(23, 23, 23, 0.2);
+  background: rgba(229, 180, 63, 0.18);
+  padding: 2px 5px;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .work-surface {
+    box-shadow: 5px 5px 0 #171717;
+  }
+}
