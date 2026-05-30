@@ -34,11 +34,18 @@ npm run build
 本地规则模板不依赖任何 Key。需要 AI 改写时，创建 `.env.local`：
 
 ```bash
-OPENAI_API_KEY=your_key
-# 或
-OPENROUTER_API_KEY=your_key
-AI_MODEL=gpt-4.1-mini
+AI_PROVIDER=openai-compatible
+AI_API_KEY=your_key
+AI_BASE_URL=https://yunw.ai/v1
+AI_MODEL=[国产]Qwen3.5
 ```
+
+也可以使用官方服务：
+
+- DeepSeek: `AI_PROVIDER=deepseek`, `DEEPSEEK_API_KEY=...`, `AI_MODEL=deepseek-chat`
+- Qwen/DashScope: `AI_PROVIDER=qwen`, `QWEN_API_KEY=...`, `AI_MODEL=qwen-plus`
+- OpenAI: `AI_PROVIDER=openai`, `OPENAI_API_KEY=...`, `AI_MODEL=gpt-4.1-mini`
+- OpenRouter: `AI_PROVIDER=openrouter`, `OPENROUTER_API_KEY=...`
 
 ## 核心架构
 
