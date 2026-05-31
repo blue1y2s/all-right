@@ -9,6 +9,7 @@ describe("simulatePublish", () => {
     const result = await simulatePublish(post);
 
     expect(result.status).toBe("success");
+    expect(result.externalPostId).toContain(post.platformId);
     expect(result.simulatedUrl).toContain(post.platformId);
     expect(result.logs.length).toBeGreaterThan(0);
   });

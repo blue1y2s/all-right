@@ -39,6 +39,7 @@ export async function simulatePublish(post: AdaptedPost): Promise<PublishResult>
 
   return createPublishResult(post, {
     status: "success",
+    externalPostId: `sim-${post.platformId}-${Date.now()}`,
     simulatedUrl: `https://demo.all-right.local/${post.platformId}/${encodeURIComponent(post.title.slice(0, 24))}`,
     durationMs: Math.round(performance.now() - startedAt),
     logs: [

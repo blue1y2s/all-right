@@ -26,6 +26,11 @@ const baseCapabilities = {
   draftFirst: true,
   scheduledPublish: false,
   simulatedPublish: true,
+  postActions: {
+    edit: true,
+    withdraw: true,
+    delete: false,
+  },
 };
 
 function buildWarnings(

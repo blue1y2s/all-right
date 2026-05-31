@@ -8,6 +8,7 @@
 - 平台适配器：公众号、知乎、B站、小红书
 - 平台预览：标题、摘要、正文、标签、字数、风险提示
 - 模拟发布：队列状态、执行日志、历史记录、失败重试
+- 发布后操作：成功任务支持模拟撤回，并在历史记录中留痕
 - 草稿流转：复制当前平台草稿、下载 JSON 草稿包
 - 可选 AI 增强：配置 `OPENAI_API_KEY` 或 `OPENROUTER_API_KEY` 后启用
 - 扩展架构页：新增平台模板、真实发布接入路径、三天交付边界
@@ -61,9 +62,9 @@ flowchart LR
 ### 关键接口
 
 - `SourceContent`: 原始标题、正文、标签、封面、语气、目标读者
-- `PlatformAdapter`: 平台能力、约束、适配、校验、发布
+- `PlatformAdapter`: 平台能力、约束、适配、校验、发布和发布后操作能力
 - `AdaptedPost`: 平台化标题、摘要、正文、标签、统计、风险提示
-- `PublishResult`: 平台、状态、模拟链接、耗时、错误、日志
+- `PublishResult`: 平台、状态、模拟链接、外部帖子 ID、耗时、错误、日志
 
 ### 新增平台
 
@@ -96,6 +97,7 @@ export const newPlatform: PlatformAdapter = {
 - [架构设计](docs/ARCHITECTURE.md)
 - [Demo 脚本](docs/DEMO_SCRIPT.md)
 - [Issue 拆解](docs/ISSUE_BREAKDOWN.md)
+- [验收记录](docs/VALIDATION.md)
 
 ## Demo 脚本
 
@@ -104,4 +106,5 @@ export const newPlatform: PlatformAdapter = {
 3. 使用热点选题导入一个大纲。
 4. 复制或下载当前平台草稿。
 5. 点击“一键模拟发布”，展示四个平台队列、日志和历史记录。
-6. 切到“扩展架构”，说明新增平台只需要实现 adapter。
+6. 对成功任务点击“模拟撤回”，说明发布后操作如何通过 adapter 能力扩展。
+7. 切到“扩展架构”，说明新增平台只需要实现 adapter。

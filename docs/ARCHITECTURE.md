@@ -13,14 +13,15 @@ flowchart LR
   D --> F["copy/download"]
   D --> G["publish"]
   G --> H["PublishResult"]
+  H --> I["postActions"]
 ```
 
 ## 核心接口
 
 - `SourceContent`: 标题、正文、标签、封面、语气、目标读者。
-- `PlatformAdapter`: 平台能力、约束、适配、校验、发布函数。
+- `PlatformAdapter`: 平台能力、约束、适配、校验、发布函数和发布后操作能力。
 - `AdaptedPost`: 平台草稿，包含标题、摘要、正文、标签、统计和 warnings。
-- `PublishResult`: 发布任务状态、日志、模拟链接和错误信息。
+- `PublishResult`: 发布任务状态、日志、外部帖子 ID、模拟链接和错误信息。
 
 ## 新增平台
 
@@ -29,6 +30,16 @@ flowchart LR
 3. 在 adapter 的 `adapt` 中完成标题、正文、标签的风格化。
 4. 在 `validate` 中复用平台约束和源内容风险提示。
 5. 首版可复用 `simulatePublish`，真实发布时替换 `publish`。
+
+## 发布后操作
+
+发布结果会保留 `externalPostId` 和日志，首版支持成功任务的模拟撤回。真实平台接入时，这一层不应该默认所有平台都可撤回，而是由 adapter 的 `capabilities.postActions` 控制：
+
+- `edit`: 平台是否允许发布后编辑或草稿覆盖。
+- `withdraw`: 平台是否允许撤回、下架或删除已发布内容。
+- `delete`: 平台是否允许删除远端草稿或发布记录。
+
+如果平台不支持撤回，前端应展示“需到平台手动处理”，并保留发布日志，避免给用户错误承诺。
 
 ## 真实发布策略
 

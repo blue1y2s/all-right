@@ -1,6 +1,11 @@
 export type PlatformId = "wechat" | "zhihu" | "bilibili" | "xiaohongshu";
 
-export type PublishStatus = "pending" | "running" | "success" | "failed";
+export type PublishStatus =
+  | "pending"
+  | "running"
+  | "success"
+  | "failed"
+  | "withdrawn";
 
 export type ContentTone =
   | "professional"
@@ -32,6 +37,11 @@ export interface PlatformCapabilities {
   draftFirst: boolean;
   scheduledPublish: boolean;
   simulatedPublish: boolean;
+  postActions: {
+    edit: boolean;
+    withdraw: boolean;
+    delete: boolean;
+  };
 }
 
 export interface AdaptedPost {
@@ -52,11 +62,13 @@ export interface PublishResult {
   platformLabel: string;
   title: string;
   status: PublishStatus;
+  externalPostId?: string;
   simulatedUrl?: string;
   durationMs?: number;
   error?: string;
   logs: string[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface PlatformAdapter {

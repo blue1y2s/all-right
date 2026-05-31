@@ -21,6 +21,7 @@ import {
   Sparkles,
   Tags,
   Trash2,
+  Undo2,
   Wand2,
   XCircle,
 } from "lucide-react";
@@ -33,7 +34,16 @@ import {
   createPlainDraft,
   serializeDraftPackage,
 } from "@/lib/draftPackage";
-import { createPublishResult } from "@/lib/publishing";
+import {
+  canRetry,
+  canWithdraw,
+  createPendingQueue,
+  createRunningResult,
+  createWithdrawnResult,
+  prependHistory,
+  replaceQueueItem,
+  upsertQueueItem,
+} from "@/lib/publishQueue";
 import type {
   AdaptedPost,
   ContentTone,
@@ -91,6 +101,7 @@ function statusLabel(status: PublishResult["status"]) {
     running: "发布中",
     success: "成功",
     failed: "失败",
+    withdrawn: "已撤回",
   };
   return labels[status];
 }
@@ -98,6 +109,7 @@ function statusLabel(status: PublishResult["status"]) {
 function statusIcon(status: PublishResult["status"]) {
   if (status === "success") return <CheckCircle2 className="h-4 w-4" />;
   if (status === "failed") return <XCircle className="h-4 w-4" />;
+  if (status === "withdrawn") return <Undo2 className="h-4 w-4" />;
   if (status === "running") return <Loader2 className="h-4 w-4 animate-spin" />;
   return <Clock3 className="h-4 w-4" />;
 }
@@ -187,13 +199,9 @@ export function ContentPublisherApp() {
   }
 
   async function publishPost(post: AdaptedPost, id?: string) {
-    const started = createPublishResult(post, {
-      id: id ?? `${post.platformId}-${Date.now()}`,
-      status: "running",
-      logs: ["任务进入模拟发布器", "正在执行平台校验"],
-    });
+    const started = createRunningResult(post, id ?? `${post.platformId}-${Date.now()}`);
 
-    setQueue((current) => current.map((item) => (item.id === started.id ? started : item)));
+    setQueue((current) => upsertQueueItem(current, started));
     const result = await adapterRegistry[post.platformId].publish(post);
     const finalResult = {
       ...result,
@@ -201,22 +209,16 @@ export function ContentPublisherApp() {
       createdAt: started.createdAt,
     };
 
-    setQueue((current) => current.map((item) => (item.id === started.id ? finalResult : item)));
+    setQueue((current) => replaceQueueItem(current, finalResult));
     setHistory((current) => {
-      const next = [finalResult, ...current].slice(0, 16);
+      const next = prependHistory(current, finalResult);
       saveHistory(next);
       return next;
     });
   }
 
   async function publishAll() {
-    const initialQueue = adaptedPosts.map((post) =>
-      createPublishResult(post, {
-        id: `${post.platformId}-${Date.now()}`,
-        status: "pending",
-        logs: ["等待进入模拟发布器"],
-      }),
-    );
+    const initialQueue = createPendingQueue(adaptedPosts);
 
     setQueue(initialQueue);
 
@@ -232,6 +234,17 @@ export function ContentPublisherApp() {
       adapterRegistry[result.platformId].adapt(source);
 
     await publishPost(post, result.id);
+  }
+
+  function withdraw(result: PublishResult) {
+    const nextResult = createWithdrawnResult(result);
+    setQueue((current) => replaceQueueItem(current, nextResult));
+    setHistory((current) => {
+      const next = prependHistory(current, nextResult);
+      saveHistory(next);
+      return next;
+    });
+    setNotice(`${result.platformLabel} 已完成模拟撤回`);
   }
 
   async function enhanceWithAi() {
@@ -339,6 +352,7 @@ export function ContentPublisherApp() {
             queue={queue}
             history={history}
             retry={retry}
+            withdraw={withdraw}
             aiEnabled={aiEnabled}
             aiBusy={aiBusy}
             enhanceWithAi={enhanceWithAi}
@@ -377,6 +391,7 @@ interface WorkspaceViewProps {
   queue: PublishResult[];
   history: PublishResult[];
   retry: (result: PublishResult) => Promise<void>;
+  withdraw: (result: PublishResult) => void;
   aiEnabled: boolean;
   aiBusy: boolean;
   enhanceWithAi: () => Promise<void>;
@@ -618,7 +633,12 @@ function WorkspaceView(props: WorkspaceViewProps) {
           ) : (
             <div className="space-y-2">
               {props.queue.map((item) => (
-                <LogRow key={item.id} item={item} onRetry={() => props.retry(item)} />
+                <LogRow
+                  key={item.id}
+                  item={item}
+                  onRetry={() => props.retry(item)}
+                  onWithdraw={() => props.withdraw(item)}
+                />
               ))}
             </div>
           )}
@@ -649,6 +669,15 @@ function WorkspaceView(props: WorkspaceViewProps) {
                     <p className="mt-2 line-clamp-2 text-xs font-bold text-[#66645d]">
                       {item.title}
                     </p>
+                    {canWithdraw(item) ? (
+                      <button
+                        className="pressed-shadow mt-3 flex items-center gap-2 border-2 border-[#171717] bg-[#eee8da] px-3 py-2 text-xs font-black"
+                        onClick={() => props.withdraw(item)}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                        模拟撤回
+                      </button>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -844,6 +873,7 @@ function StatusPill({ status }: { status: PublishResult["status"] }) {
         "inline-flex items-center gap-1 border-2 border-[#171717] px-2 py-1 text-xs font-black",
         status === "success" && "bg-[#d7e8df] text-[#1d7f4f]",
         status === "failed" && "bg-[#f7d5cd] text-[#b43a31]",
+        status === "withdrawn" && "bg-[#eee8da] text-[#66645d]",
         status === "running" && "bg-[#f1d46b]",
         status === "pending" && "bg-[#eee8da]",
       )}
@@ -854,7 +884,15 @@ function StatusPill({ status }: { status: PublishResult["status"] }) {
   );
 }
 
-function LogRow({ item, onRetry }: { item: PublishResult; onRetry: () => void }) {
+function LogRow({
+  item,
+  onRetry,
+  onWithdraw,
+}: {
+  item: PublishResult;
+  onRetry: () => void;
+  onWithdraw: () => void;
+}) {
   return (
     <div className="border-2 border-[#171717] bg-[#fffdf7] p-3">
       <div className="flex items-start justify-between gap-2">
@@ -872,13 +910,22 @@ function LogRow({ item, onRetry }: { item: PublishResult; onRetry: () => void })
           </div>
         ))}
       </div>
-      {item.status === "failed" ? (
+      {canRetry(item) ? (
         <button
           className="pressed-shadow mt-3 flex items-center gap-2 border-2 border-[#171717] bg-[#f1d46b] px-3 py-2 text-sm font-black"
           onClick={onRetry}
         >
           <RotateCcw className="h-4 w-4" />
           重试
+        </button>
+      ) : null}
+      {canWithdraw(item) ? (
+        <button
+          className="pressed-shadow mt-3 flex items-center gap-2 border-2 border-[#171717] bg-[#eee8da] px-3 py-2 text-sm font-black"
+          onClick={onWithdraw}
+        >
+          <Undo2 className="h-4 w-4" />
+          模拟撤回
         </button>
       ) : null}
     </div>
@@ -903,7 +950,7 @@ function ArchitectureView() {
               ["SourceContent", "统一输入"],
               ["PlatformAdapter", "平台规则"],
               ["AdaptedPost", "草稿预览"],
-              ["PublishResult", "队列结果"],
+              ["PublishResult", "队列与回撤"],
             ].map(([title, text], index) => (
               <div key={title} className="border-2 border-[#171717] bg-[#fffdf7] p-4">
                 <div className="text-3xl font-black text-[#d85030]">0{index + 1}</div>
@@ -940,6 +987,21 @@ function ArchitectureView() {
               ["浏览器自动化", "Playwright 使用用户本地登录态，把草稿写入平台编辑器。"],
               ["Wechatsync CLI/MCP", "复用成熟浏览器扩展通道，草稿优先，避免账号密码流转。"],
               ["平台开放 API", "优先接官方 API，失败时回落到模拟发布或草稿下载。"],
+            ].map(([title, text]) => (
+              <div key={title} className="border-2 border-[#171717] bg-[#fffdf7] p-4">
+                <div className="font-black">{title}</div>
+                <p className="mt-2 text-sm font-bold leading-6 text-[#66645d]">{text}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="发布后操作" icon={<Undo2 className="h-4 w-4" />}>
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              ["edit", "允许平台草稿覆盖或发布后编辑时才开放。"],
+              ["withdraw", "允许撤回、下架或删除远端帖子时才开放。"],
+              ["delete", "用于清理远端草稿或发布记录，默认不强行承诺。"],
             ].map(([title, text]) => (
               <div key={title} className="border-2 border-[#171717] bg-[#fffdf7] p-4">
                 <div className="font-black">{title}</div>
