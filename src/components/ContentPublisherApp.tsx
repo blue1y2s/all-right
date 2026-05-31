@@ -25,10 +25,15 @@ import {
   Wand2,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useReducer, useState, type KeyboardEvent } from "react";
 import clsx from "clsx";
 import { adapterRegistry, platformAdapters } from "@/lib/adapters";
-import { demoContent, generateHotIdeas } from "@/lib/demoContent";
+import { loadWorkspace, persistWorkspaceIfAllowed } from "@/lib/context/contextStorage";
+import {
+  selectActiveSource,
+  workspaceReducer,
+} from "@/lib/context/workspaceReducer";
+import { generateHotIdeas } from "@/lib/demoContent";
 import {
   createDraftFilename,
   createPlainDraft,
@@ -115,8 +120,12 @@ function statusIcon(status: PublishResult["status"]) {
 }
 
 export function ContentPublisherApp() {
+  const [loadedWorkspace] = useState(() => loadWorkspace());
+  const [workspace, dispatchWorkspace] = useReducer(
+    workspaceReducer,
+    loadedWorkspace.state,
+  );
   const [view, setView] = useState<"workspace" | "architecture">("workspace");
-  const [source, setSource] = useState<SourceContent>(demoContent);
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformId[]>(platformIds);
   const [activePlatform, setActivePlatform] = useState<PlatformId>("wechat");
   const [tagDraft, setTagDraft] = useState("");
@@ -125,7 +134,11 @@ export function ContentPublisherApp() {
   const [history, setHistory] = useState<PublishResult[]>([]);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
-  const [notice, setNotice] = useState("本地规则模板已就绪");
+  const [notice, setNotice] = useState(
+    loadedWorkspace.meta.notice ?? "本地规则模板已就绪",
+  );
+
+  const source = selectActiveSource(workspace);
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -133,10 +146,32 @@ export function ContentPublisherApp() {
       .then((response) => response.json())
       .then((data: { enabled: boolean }) => {
         setAiEnabled(Boolean(data.enabled));
-        setNotice(data.enabled ? "AI 增强已启用" : "本地规则模板已就绪");
+        if (!loadedWorkspace.meta.notice) {
+          setNotice(data.enabled ? "AI 增强已启用" : "本地规则模板已就绪");
+        }
       })
-      .catch(() => setNotice("本地规则模板已就绪"));
-  }, []);
+      .catch(() => {
+        if (!loadedWorkspace.meta.notice) setNotice("本地规则模板已就绪");
+      });
+  }, [loadedWorkspace.meta.notice]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const result = persistWorkspaceIfAllowed(workspace, loadedWorkspace.meta);
+      if (!result.ok && result.reason !== "readonly") setNotice(result.message);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [loadedWorkspace.meta, workspace]);
+
+  useEffect(() => {
+    function saveBeforeUnload() {
+      persistWorkspaceIfAllowed(workspace, loadedWorkspace.meta);
+    }
+
+    window.addEventListener("beforeunload", saveBeforeUnload);
+    return () => window.removeEventListener("beforeunload", saveBeforeUnload);
+  }, [loadedWorkspace.meta, workspace]);
 
   useEffect(() => {
     if (!selectedPlatforms.includes(activePlatform) && selectedPlatforms.length > 0) {
@@ -162,7 +197,7 @@ export function ContentPublisherApp() {
   const ideas = useMemo(() => generateHotIdeas(topic), [topic]);
 
   function updateSource(patch: Partial<SourceContent>) {
-    setSource((current) => ({ ...current, ...patch }));
+    dispatchWorkspace({ type: "PATCH_ACTIVE_SOURCE", patch });
   }
 
   function togglePlatform(platformId: PlatformId) {
@@ -178,18 +213,18 @@ export function ContentPublisherApp() {
     const tags = splitTagText(value);
     if (tags.length === 0) return;
 
-    setSource((current) => ({
-      ...current,
-      tags: Array.from(new Set([...current.tags, ...tags])).slice(0, 10),
-    }));
+    dispatchWorkspace({
+      type: "PATCH_ACTIVE_SOURCE",
+      patch: { tags: Array.from(new Set([...source.tags, ...tags])).slice(0, 10) },
+    });
     setTagDraft("");
   }
 
   function removeTag(tag: string) {
-    setSource((current) => ({
-      ...current,
-      tags: current.tags.filter((item) => item !== tag),
-    }));
+    dispatchWorkspace({
+      type: "PATCH_ACTIVE_SOURCE",
+      patch: { tags: source.tags.filter((item) => item !== tag) },
+    });
   }
 
   function handleTagKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -264,7 +299,7 @@ export function ContentPublisherApp() {
         return;
       }
 
-      setSource(data.source);
+      dispatchWorkspace({ type: "PATCH_ACTIVE_SOURCE", patch: data.source });
       setNotice("AI 增强已写入工作台");
     } catch {
       setNotice("AI 增强请求失败，已保留本地内容");
